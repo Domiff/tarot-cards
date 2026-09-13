@@ -35,9 +35,14 @@ class RedisSettings(AppSettings):
         )
 
 
-class Settings:
+class LoggingSettings(AppSettings):
+    LOG_LEVEL: str = "INFO"
+
+
+class Settings(AppSettings):
     bot: BotSettings = BotSettings()
     redis: RedisSettings = RedisSettings()
+    logging: LoggingSettings = LoggingSettings()
 
 
 settings = Settings()

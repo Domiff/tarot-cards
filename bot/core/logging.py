@@ -63,6 +63,7 @@ def build_config() -> dict[str, Any]:
         "root": {"handlers": ["console"], "level": "WARNING"},
         "loggers": {
             "bot": {"level": settings.logging.LOG_LEVEL},
+            "aiogram": {"level": settings.logging.LOG_LEVEL},
         },
     }
 
