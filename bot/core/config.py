@@ -7,7 +7,6 @@ BASE_DIR: Path = Path(__file__).parent.parent
 
 class AppSettings(BaseSettings):
     IS_DEBUG: bool = True
-    BASE_URL: str
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
