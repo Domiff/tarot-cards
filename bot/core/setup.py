@@ -1,4 +1,4 @@
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, loggers
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.base import DefaultKeyBuilder
@@ -10,7 +10,7 @@ from bot.core.cache import get_redis
 
 def create_bot() -> Bot:
     return Bot(
-        token=settings.BOT_TOKEN,
+        token=settings.bot.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 

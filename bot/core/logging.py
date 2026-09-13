@@ -40,7 +40,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def build_config() -> dict[str, Any]:
-    formatter = "text" if settings.app.IS_DEBUG else "json"
+    formatter = "text" if settings.IS_DEBUG else "json"
 
     return {
         "version": 1,
