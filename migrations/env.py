@@ -9,7 +9,7 @@ from alembic import context
 
 from bot.core.config import settings
 from bot.core.database import Base
-from bot.tarot.models import History, TarotCard, DailyCard
+from bot.tarot.models import History, Card, DailyCard
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
