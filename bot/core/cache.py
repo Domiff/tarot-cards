@@ -24,47 +24,47 @@ def _get_redis() -> Redis:
 class BaseRedis:
     def __init__(self, redis) -> None:
         self.redis: Redis = redis
-        self.logger = get_logger(self.__class__.__name__)
+        self.logger = get_logger(__name__)
 
     @staticmethod
     def key_builder(prefix: str, key: str) -> str:
         return f"{prefix}:{key}"
 
-    async def _do(
-            self, func: Callable[..., Awaitable[Any]], *args, **kwargs
-    ) -> Any:
+    async def _do(self, func: Callable[..., Awaitable[Any]], *args, **kwargs) -> Any:
         operation = getattr(func, "__name__", repr(func))
         try:
             return await func(*args, **kwargs)
         except (RedisConnectionError, RedisTimeoutError) as e:
             self.logger.error(
-                "Redis connection error", operation=operation, error=str(e)
+                "redis_connection_error",
+                extra={"operation": operation, "error": str(e)},
             )
             raise
         except Exception as e:
             self.logger.error(
-                "Redis operation failed", operation=operation, error=str(e)
+                "redis_operation_failed",
+                extra={"operation": operation, "error": str(e)},
             )
             raise
 
 
 class RedisCache(BaseRedis):
     async def set(
-            self, key: str, value, expire: int | timedelta = settings.redis.EXPIRE
+        self, key: str, value, expire: int | timedelta = settings.redis.EXPIRE
     ) -> None:
         await self._do(self.redis.set, key, value, ex=expire)
-        self.logger.info("redis_set", redis_key=key)
+        self.logger.info("redis_set", extra={"redis_key": key})
 
     async def get(self, key: str) -> str | bytes | None:
         value = await self._do(self.redis.get, key)
         if value:
-            self.logger.info("redis_get", redis_key=key)
+            self.logger.info("redis_get", extra={"redis_key": key})
             return value
         return None
 
     async def delete(self, key: str) -> None:
         await self._do(self.redis.delete, key)
-        self.logger.info("redis_delete", redis_key=key)
+        self.logger.info("redis_delete", extra={"redis_key": key})
 
 
 @lru_cache
