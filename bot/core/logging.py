@@ -64,6 +64,10 @@ def build_config() -> dict[str, Any]:
         "loggers": {
             "bot": {"level": settings.logging.LOG_LEVEL},
             "aiogram": {"level": settings.logging.LOG_LEVEL},
+            "uvicorn": {"level": "INFO", "propagate": True},
+            "uvicorn.access": {"level": "INFO", "propagate": True},
+            "uvicorn.error": {"level": "INFO", "propagate": True},
+            "sqlalchemy.engine": {"level": "WARNING"},
         },
     }
 
