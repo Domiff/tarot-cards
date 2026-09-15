@@ -39,7 +39,7 @@ async def help_(message: Message) -> None:
     )
 
 
-async def main():
+async def main() -> None:
     await dp.start_polling(bot)
 
 
