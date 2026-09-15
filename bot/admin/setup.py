@@ -4,7 +4,7 @@ from sqladmin import Admin, I18nConfig
 from sqladmin._menu import CategoryMenu
 
 from bot.admin.auth import AdminAuth
-from bot.core.config import settings
+from bot.core.config import BASE_DIR, settings
 from bot.core.database import session_maker
 
 
@@ -23,7 +23,9 @@ def setup_admin(app: Starlette) -> Admin:
         session_maker=session_maker,
         base_url="/admin",
         title="Tarot admin",
+        favicon_url="/admin/statics/tarot-logo.svg",
         templates_dir="templates",
+        static_files_kwargs={"directory": BASE_DIR / "static"},
         authentication_backend=AdminAuth(
             secret_key=settings.admin.ADMIN_SECRET_KEY,
             https_only=not settings.IS_DEBUG,

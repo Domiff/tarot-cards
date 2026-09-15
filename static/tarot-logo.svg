@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 132" width="88" height="132" role="img" aria-label="Таро">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4d98b"/>
+      <stop offset="1" stop-color="#c9a227"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="3" y="3" width="82" height="126" rx="10"
+        fill="#1c1930" stroke="url(#gold)" stroke-width="3"/>
+  <rect x="10" y="10" width="68" height="112" rx="6"
+        fill="none" stroke="url(#gold)" stroke-width="1" opacity="0.55"/>
+
+  <path d="M44 30 L50 56 L76 62 L50 68 L44 94 L38 68 L12 62 L38 56 Z"
+        fill="url(#gold)"/>
+  <circle cx="44" cy="62" r="7" fill="#1c1930"/>
+
+  <circle cx="44" cy="20" r="2.5" fill="url(#gold)"/>
+  <circle cx="26" cy="104" r="2" fill="url(#gold)" opacity="0.8"/>
+  <circle cx="44" cy="110" r="2.5" fill="url(#gold)"/>
+  <circle cx="62" cy="104" r="2" fill="url(#gold)" opacity="0.8"/>
+</svg>
