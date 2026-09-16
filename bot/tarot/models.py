@@ -20,7 +20,7 @@ class Card(Base):
     description: Mapped[str] = mapped_column(String(length=1024))
     image: Mapped[str | None] = mapped_column(String(length=255))
     daily_card: Mapped["DailyCard | None"] = relationship(
-        back_populates="card", cascade="all, delete-orphan"
+        back_populates="card", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def __str__(self) -> str:
