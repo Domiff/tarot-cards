@@ -8,6 +8,7 @@ from aiogram.types import Message
 
 from bot.core.config import settings
 from bot.core.logging import setup_logging
+from bot.tarot.router import router
 
 
 bot = Bot(
@@ -34,12 +35,14 @@ async def help_(message: Message) -> None:
         text=(
             "<b>Доступные команды</b>\n"
             "/start — начать работу с ботом\n"
-            "/help — показать это сообщение"
+            "/help — показать это сообщение\n"
+            "/history — история Таро"
         )
     )
 
 
 async def main() -> None:
+    dp.include_router(router)
     await dp.start_polling(bot)
 
 
