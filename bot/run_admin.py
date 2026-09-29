@@ -26,6 +26,8 @@ def setup_server() -> uvicorn.Server:
             port=settings.admin.ADMIN_PORT,
             loop="uvloop",
             log_config=None,
+            proxy_headers=True,
+            forwarded_allow_ips="*",
         )
     )
 
