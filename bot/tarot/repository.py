@@ -20,6 +20,13 @@ async def get_cards() -> Sequence[Card]:
         return cards.scalars().all()
 
 
+async def get_card(name: str) -> Card:
+    async with session_maker() as session:
+        query = select(Card).where(Card.name == name)
+        cards = await session.execute(query)
+        return cards.scalar_one()
+
+
 async def get_daily_card() -> DailyCard:
     async with session_maker() as session:
         query = select(DailyCard)
