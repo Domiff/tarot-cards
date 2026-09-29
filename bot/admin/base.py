@@ -4,7 +4,8 @@ from sqladmin import ModelView
 
 
 class BaseAdmin(ModelView):
-    use_pretty_export = True
+    use_pretty_export = False
+    can_import = True
     page_size = 25
 
     def get_export_name(self, export_type: str) -> str:

@@ -3,7 +3,6 @@ from typing import Any
 
 from markupsafe import Markup
 from wtforms.validators import Length
-import sqladmin
 
 from bot.admin.base import BaseAdmin
 from bot.admin.filters import RuOperationColumnFilter
