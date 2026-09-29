@@ -1,0 +1,52 @@
+services:
+  admin:
+    container_name: admin-tarot
+    build:
+      dockerfile: Dockerfile
+    environment:
+      IS_DEBUG: "false"
+      POSTGRES_HOST: pg
+    env_file:
+      - .env
+    command: sh -c "alembic upgrade head && python -m bot.run_admin"
+    ports:
+      - "${ADMIN_PORT:-8080}:${ADMIN_PORT:-8080}"
+    depends_on:
+      pg:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bot:
+    container_name: bot-tarot
+    build:
+      dockerfile: Dockerfile
+    environment:
+      IS_DEBUG: "false"
+      POSTGRES_HOST: pg
+    env_file:
+      - .env
+    command: python -m bot.run_bot
+    depends_on:
+      pg:
+        condition: service_healthy
+      admin:
+        condition: service_started
+    restart: unless-stopped
+
+  pg:
+    container_name: pg-tarot
+    image: postgres:16
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      start_period: 5s
+      interval: 1m
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
