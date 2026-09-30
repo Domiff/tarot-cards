@@ -6,7 +6,7 @@ daily reading and history chapter is authored through the admin.
 
 ## Features
 
-- **Telegram bot** on aiogram 3 with long polling
+- **Telegram bot** on aiogram 3 with long polling and inline-keyboard navigation through the deck
 - **Admin panel** built on SQLAdmin — Russian labels, session auth, length validation against Telegram's
   4096-character message limit, and a custom django-unfold–style theme with light and dark modes
 - **Content in the database**: 78 cards, per-card daily readings, history of tarot
@@ -35,7 +35,7 @@ Requires Python 3.14+.
 bot/
   admin/          admin panel: auth, base view, filters, wiring
   core/           settings, database, logging
-  tarot/          models, admin views, repository, router, message formatting
+  tarot/          models, admin views, repository, router, keyboards, message formatting
   run_bot.py      entry point — Telegram bot
   run_admin.py    entry point — admin panel
 migrations/       Alembic
@@ -114,12 +114,35 @@ database stays on the internal network.
 |---|---|
 | `/start` | Greeting |
 | `/help` | The command list |
-| `/cards` | The whole deck, grouped into major arcana and four suits; each group is a collapsed quote that expands on tap |
+| `/cards` | The deck behind inline buttons: arcana → cards → one card |
 | `/card <name>` | One card with its description. The name has to match exactly, including case |
 | `/history` | The history of tarot |
 
-Message texts are built in `bot/tarot/service.py`, so the handlers stay thin. Long output is split across
-several messages on group boundaries — a list cannot be cut inside a quote without breaking its markup.
+### Browsing the deck
+
+`/cards` sends a single message and then rewrites it in place, so the chat stays clean:
+
+```
+/cards ──► buttons: major arcana and the four suits
+             │  tap a suit
+             ▼
+          the same message → its 14 cards, two per row, plus "back"
+             │  tap a card
+             ▼
+          the same message → the description in a quote, plus "back"
+```
+
+All of the state lives in the button itself. `DeckCallback` from `bot/tarot/keyboards.py` packs it into
+`deck:<action>:<value>` — `action` picks the screen, `value` is the arcana index or the card id. Nothing is
+kept in memory, so a message from last week still works after a restart.
+
+Arcana are addressed by index rather than by title (`group_index()` in `bot/tarot/service.py`): emoji and
+Cyrillic would eat into the 64 bytes Telegram allows for callback data, and renaming a heading would break
+old buttons.
+
+Message texts are built in `bot/tarot/service.py` and keyboards in `bot/tarot/keyboards.py`, so the handlers
+stay thin. Tapping the same button twice makes Telegram answer "message is not modified" — the router
+swallows exactly that error and re-raises everything else.
 
 ## Configuration
 
