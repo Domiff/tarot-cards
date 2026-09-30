@@ -12,7 +12,9 @@ daily reading and history chapter is authored through the admin.
 - **Content in the database**: 78 cards, per-card daily readings, history of tarot
 - **Two independent entry points** — the bot and the admin run as separate processes and share only the
   database layer
+- **CSV export and import** for every admin view
 - **Alembic migrations** for the schema
+- **Docker Compose** for the whole stack: admin, bot and PostgreSQL
 
 ## Stack
 
@@ -23,7 +25,6 @@ daily reading and history chapter is authored through the admin.
 | ORM | SQLAlchemy 2 (async) |
 | Migrations | Alembic |
 | Database | SQLite in debug, PostgreSQL via asyncpg otherwise |
-| Cache | Redis |
 | Settings | pydantic-settings |
 
 Requires Python 3.14+.
@@ -33,13 +34,16 @@ Requires Python 3.14+.
 ```
 bot/
   admin/          admin panel: auth, base view, filters, wiring
-  core/           settings, database, Redis cache, logging
-  tarot/          models, admin views, repository, router
+  core/           settings, database, logging
+  tarot/          models, admin views, repository, router, message formatting
   run_bot.py      entry point — Telegram bot
   run_admin.py    entry point — admin panel
 migrations/       Alembic
 static/           admin assets: logo, css/admin.css theme
 templates/        SQLAdmin template overrides
+Dockerfile        image for both entry points
+docker-compose.yml  admin, bot and PostgreSQL
+.env.template     every setting the app reads
 ```
 
 ## Setup
@@ -50,16 +54,15 @@ Install dependencies:
 uv sync
 ```
 
-Create a `.env` file in the project root:
+Create `.env` from the template and fill it in:
 
-```dotenv
-IS_DEBUG=true
-BOT_TOKEN=123456:your-telegram-bot-token
-
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me
-ADMIN_SECRET_KEY=generate-a-long-random-string
+```bash
+cp .env.template .env
 ```
+
+At the very least `BOT_TOKEN`, `ADMIN_PASSWORD` and `ADMIN_SECRET_KEY` have to be set. The `POSTGRES_*`
+values are only needed when running through Docker Compose, where they also configure the database
+container itself.
 
 `ADMIN_PASSWORD` and `ADMIN_SECRET_KEY` have no defaults on purpose — the app refuses to start without
 them. Generate a secret key with:
@@ -76,6 +79,10 @@ uv run alembic upgrade head
 
 ## Running
 
+### Locally
+
+With `IS_DEBUG=true` both processes use the SQLite file, so nothing else has to be running.
+
 The bot:
 
 ```bash
@@ -90,13 +97,37 @@ uv run python -m bot.run_admin
 
 The admin is then available at `http://localhost:8080/admin`.
 
+### Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+This starts three containers: `pg` (PostgreSQL 16), `admin` and `bot`. Both application containers get
+`IS_DEBUG=false` and `POSTGRES_HOST=pg`, so they talk to PostgreSQL instead of SQLite. The admin applies
+`alembic upgrade head` before it starts, and the bot waits for it. Only the admin port is published; the
+database stays on the internal network.
+
+## Bot commands
+
+| Command | What it does |
+|---|---|
+| `/start` | Greeting |
+| `/help` | The command list |
+| `/cards` | The whole deck, grouped into major arcana and four suits; each group is a collapsed quote that expands on tap |
+| `/card <name>` | One card with its description. The name has to match exactly, including case |
+| `/history` | The history of tarot |
+
+Message texts are built in `bot/tarot/service.py`, so the handlers stay thin. Long output is split across
+several messages on group boundaries — a list cannot be cut inside a quote without breaking its markup.
+
 ## Configuration
 
 All settings are read from `.env`. Anything with a default can be omitted.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `IS_DEBUG` | `true` | Switches database and Redis targets, and the log format |
+| `IS_DEBUG` | `true` | Switches the database target and the log format |
 | `BOT_TOKEN` | — | Telegram bot token |
 | `ADMIN_USERNAME` | `admin` | Admin login |
 | `ADMIN_PASSWORD` | — | Admin password |
@@ -107,18 +138,14 @@ All settings are read from `.env`. Anything with a default can be omitted.
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | — | Used when `IS_DEBUG=false` |
 | `POSTGRES_HOST` | `localhost` | |
 | `POSTGRES_PORT` | `5432` | |
-| `REDIS_HOST` | `localhost` in debug, `redis` otherwise | |
-| `REDIS_PORT` | `6379` | |
-| `REDIS_DB` | `0` | |
 | `LOG_LEVEL` | `INFO` | Level for the `bot` and `aiogram` loggers |
 
-`IS_DEBUG` does more than toggle verbosity: it selects SQLite over PostgreSQL, `localhost` over the `redis`
-service host, human-readable logs over JSON, and disables the `Secure` flag on the admin session cookie.
-Set it to `false` in production.
+`IS_DEBUG` does more than toggle verbosity: it selects SQLite over PostgreSQL, human-readable logs over
+JSON, and disables the `Secure` flag on the admin session cookie. Set it to `false` in production.
 
 ## Content model
 
-- **Card** — name, short description shown in spreads, image path, and a cached Telegram `file_id`
+- **Card** — name, short description shown in spreads, and an image path
 - **DailyCard** — one-to-one with a card, holds the full card-of-the-day post
 - **History** — the history of tarot as readable text
 
@@ -157,13 +184,36 @@ List columns with long text use the `_preview()` formatter from `bot/tarot/admin
 value on a word boundary and lets it wrap instead of stretching the table. It applies to list pages only —
 the detail page shows the full text.
 
+## Export and import
+
+Every view inherits `BaseAdmin` from `bot/admin/base.py`, which turns CSV import on (`can_import = True`)
+and keeps export raw (`use_pretty_export = False`). Exported file names carry the model and a timestamp,
+e.g. `card_2026-09-29_18-40.csv`.
+
+Both buttons sit in the list page header. Import opens a dialog with a file picker, a "continue on error"
+checkbox and a progress bar; the report lists the line number and the reason for every row that did not
+make it.
+
+Things worth knowing before importing:
+
+- **Headers are field names** (`name`, `description`, `image`), not the Russian column labels.
+- **Rows go through the create form**, so the `Length` validators apply — an over-long description is
+  rejected instead of being truncated.
+- **Import only inserts.** There is no upsert: re-importing the same file fails on `Card.name`, which is
+  unique. To change existing rows, edit them in the admin.
+- **Each row is written in its own savepoint.** Without "continue on error" the whole import rolls back;
+  with it, bad rows are skipped and reported.
+- **Keep `use_pretty_export` off.** Pretty export writes the *formatted* value, so the `<span>` wrapper and
+  the ellipsis from `_preview()` would end up in the CSV — and back in the database on the next import.
+  Telegram then refuses to send such text, because it only accepts `<span class="tg-spoiler">`.
+
 ## Logging
 
 Logging is configured in `bot/core/logging.py`: readable single-line output in debug, JSON in production.
 Structured fields are passed through `extra`, and the JSON formatter promotes them to top-level keys.
 
 ```python
-logger.info("redis_set", extra={"redis_key": key})
+logger.info("admin_login_success", extra={"username": username})
 ```
 
 ## Development
