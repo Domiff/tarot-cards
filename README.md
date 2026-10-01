@@ -12,6 +12,7 @@ daily reading and history chapter is authored through the admin.
 - **Content in the database**: 78 cards, per-card daily readings, history of tarot
 - **Two independent entry points** — the bot and the admin run as separate processes and share only the
   database layer
+- **Redis cache** for the deck and the history, dropped as soon as the admin saves a change
 - **CSV export and import** for every admin view
 - **Alembic migrations** for the schema
 - **Docker Compose** for the whole stack: admin, bot and PostgreSQL
@@ -25,6 +26,7 @@ daily reading and history chapter is authored through the admin.
 | ORM | SQLAlchemy 2 (async) |
 | Migrations | Alembic |
 | Database | SQLite in debug, PostgreSQL via asyncpg otherwise |
+| Cache | Redis, values validated and serialized by pydantic |
 | Settings | pydantic-settings |
 
 Requires Python 3.14+.
@@ -34,8 +36,9 @@ Requires Python 3.14+.
 ```
 bot/
   admin/          admin panel: auth, base view, filters, wiring
-  core/           settings, database, logging
-  tarot/          models, admin views, repository, router, keyboards, message formatting
+  core/           settings, database, Redis client, logging
+  tarot/          models, schemas, admin views, repository, router, keyboards, cache keys,
+                  message formatting
   run_bot.py      entry point — Telegram bot
   run_admin.py    entry point — admin panel
 migrations/       Alembic
@@ -81,7 +84,15 @@ uv run alembic upgrade head
 
 ### Locally
 
-With `IS_DEBUG=true` both processes use the SQLite file, so nothing else has to be running.
+With `IS_DEBUG=true` both processes use the SQLite file. Redis still has to be reachable — start it from
+Compose and point `REDIS_HOST` at `localhost` in your `.env`:
+
+```bash
+docker compose up -d redis
+```
+
+The `redis` service publishes no port, so add `ports: ["6379:6379"]` to reach it from a local process.
+Without Redis the bot keeps working: every read falls through to the database.
 
 The bot:
 
@@ -103,7 +114,7 @@ The admin is then available at `http://localhost:8080/admin`.
 docker compose up -d --build
 ```
 
-This starts three containers: `pg` (PostgreSQL 16), `admin` and `bot`. Both application containers get
+This starts four containers: `pg` (PostgreSQL 16), `redis`, `admin` and `bot`. Both application containers get
 `IS_DEBUG=false` and `POSTGRES_HOST=pg`, so they talk to PostgreSQL instead of SQLite. The admin applies
 `alembic upgrade head` before it starts, and the bot waits for it. Only the admin port is published; the
 database stays on the internal network.
@@ -115,7 +126,7 @@ database stays on the internal network.
 | `/start` | Greeting |
 | `/help` | The command list |
 | `/cards` | The deck behind inline buttons: arcana → cards → one card |
-| `/card <name>` | One card with its description. The name has to match exactly, including case |
+| `/card <name>` | One card with its description; the name is matched case-insensitively |
 | `/history` | The history of tarot |
 
 ### Browsing the deck
@@ -144,6 +155,37 @@ Message texts are built in `bot/tarot/service.py` and keyboards in `bot/tarot/ke
 stay thin. Tapping the same button twice makes Telegram answer "message is not modified" — the router
 swallows exactly that error and re-raises everything else.
 
+## Caching
+
+The deck and the history are read through Redis. Handlers never touch the ORM directly: `get_cached()` from
+`bot/tarot/cache.py` returns pydantic schemas, built from the database on a miss and from JSON on a hit.
+
+```python
+deck = await get_cached(CARDS_KEY, DeckAdapter, get_cards)
+```
+
+ORM objects cannot go into Redis, so `bot/tarot/schemas.py` defines what travels: `CardSchema`,
+`HistorySchema` and the `TypeAdapter`s that turn a list of them into JSON and back. Everything downstream —
+`service.py`, `keyboards.py` — works with schemas, not models.
+
+| Key | Holds | Dropped by |
+|---|---|---|
+| `tarot:cards` | the whole deck | `CardAdmin` after a save |
+| `tarot:history` | the history text | `HistoryAdmin` after a save or a delete |
+
+Both views override `after_model_change()` / `after_model_delete()` and delete their own key, so an edit in
+the admin reaches the bot immediately instead of waiting out `EXPIRE`. CSV import writes rows directly and
+does not trigger those hooks — drop the key by hand after a bulk load.
+
+An empty result is never cached: `get_cached()` skips the write when the loader returns nothing, otherwise
+"no history yet" would stick around for a full TTL.
+
+Numbers from this deck: a cold read costs about 22 ms, a cached one about 1 ms. The JSON for 78 cards is
+roughly 27 KB, parsing it takes ~285 µs, and the linear scan `/card` does over those 78 schemas ~14 µs.
+
+If Redis is unreachable, `RedisCache._do()` logs the error and returns `None`, so the bot falls back to the
+database instead of failing.
+
 ## Configuration
 
 All settings are read from `.env`. Anything with a default can be omitted.
@@ -161,6 +203,11 @@ All settings are read from `.env`. Anything with a default can be omitted.
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | — | Used when `IS_DEBUG=false` |
 | `POSTGRES_HOST` | `localhost` | |
 | `POSTGRES_PORT` | `5432` | |
+| `REDIS_HOST` | `localhost` | `redis` inside Compose |
+| `REDIS_PORT` | `6379` | |
+| `REDIS_DB` | `0` | |
+| `EXPIRE` | `3600` | Cache TTL in seconds |
+| `CONNECTION_POOL_MAXSIZE` | `10` | Redis connection pool |
 | `LOG_LEVEL` | `INFO` | Level for the `bot` and `aiogram` loggers |
 
 `IS_DEBUG` does more than toggle verbosity: it selects SQLite over PostgreSQL, human-readable logs over
