@@ -52,11 +52,28 @@ class AdminSettings(AppSettings):
     ADMIN_PORT: int = 8080
 
 
+class RedisSettings(AppSettings):
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    CONNECTION_POOL_MAXSIZE: int = 10
+    EXPIRE: int = 60 * 60
+
+    def model_post_init(self, __context) -> None:
+        object.__setattr__(self, "REDIS_HOST", "localhost" if self.IS_DEBUG else "redis")
+        object.__setattr__(
+            self,
+            "REDIS_URL",
+            f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}",
+        )
+
+
 class Settings(AppSettings):
     bot: BotSettings = BotSettings()
     logging: LoggingSettings = LoggingSettings()
     db: DBSettings = DBSettings()
     admin: AdminSettings = AdminSettings()
+    redis: RedisSettings = RedisSettings()
 
 
 settings = Settings()
