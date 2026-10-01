@@ -1,10 +1,8 @@
-from typing import Sequence
-
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot.tarot.models import Card
+from bot.tarot.schemas import Deck
 from bot.tarot.service import GROUPS, group_cards
 
 BACK_TO_DECK = "◀ К арканам"
@@ -18,7 +16,7 @@ class DeckCallback(CallbackData, prefix="deck"):
     value: int = 0
 
 
-def groups_keyboard(cards: Sequence[Card]) -> InlineKeyboardMarkup:
+def groups_keyboard(cards: Deck) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     for index, title in enumerate(GROUPS):
@@ -35,7 +33,7 @@ def groups_keyboard(cards: Sequence[Card]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def cards_keyboard(cards: Sequence[Card]) -> InlineKeyboardMarkup:
+def cards_keyboard(cards: Deck) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     for card in cards:

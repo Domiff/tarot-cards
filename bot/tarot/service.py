@@ -1,10 +1,10 @@
 from html import escape
-from typing import Sequence
 
-from bot.tarot.models import Card
+from bot.tarot.schemas import CardSchema, Deck
 
 HEADER = "🔮 <b>Колода Таро</b>"
 EMPTY = "🔮 В колоде пока нет ни одной карты."
+EMPTY_HISTORY = "🔮 История еще не добавлена."
 MAJOR_TITLE = "🌟 Старшие арканы"
 HINT = "Отправьте /card и название карты, например <code>/card Шут</code>."
 NOT_FOUND = "🤷 Карта <b>{query}</b> не найдена.\n\n{hint}"
@@ -15,12 +15,10 @@ SUITS: tuple[tuple[str, str], ...] = (
     ("Мечей", "⚔️ Мечи"),
     ("Пентаклей", "🪙 Пентакли"),
 )
-
-
 GROUPS: tuple[str, ...] = (MAJOR_TITLE, *(title for _, title in SUITS))
 
 
-def group_index(card: Card) -> int:
+def group_index(card: CardSchema) -> int:
     """Индекс аркана: он же значение в callback_data, поэтому не строка."""
     for index, (suffix, _) in enumerate(SUITS, start=1):
         if card.name.endswith(suffix):
@@ -28,7 +26,7 @@ def group_index(card: Card) -> int:
     return 0
 
 
-def group_cards(cards: Sequence[Card], index: int) -> list[Card]:
+def group_cards(cards: Deck, index: int) -> Deck:
     """Карты аркана в порядке колоды: сортировка по алфавиту ломает её строй."""
     return sorted(
         (card for card in cards if group_index(card) == index),
@@ -36,15 +34,15 @@ def group_cards(cards: Sequence[Card], index: int) -> list[Card]:
     )
 
 
-def format_deck(cards: Sequence[Card]) -> str:
+def format_deck(cards: Deck) -> str:
     return f"{HEADER}\nВсего карт: <b>{len(cards)}</b>"
 
 
-def format_group(index: int, cards: Sequence[Card]) -> str:
+def format_group(index: int, cards: Deck) -> str:
     return f"<b>{GROUPS[index]}</b> · {len(cards)}\n\n{CHOOSE_CARD}"
 
 
-def format_card(card: Card) -> str:
+def format_card(card: CardSchema) -> str:
     return f"🃏 <b>{escape(card.name)}</b>\n\n{escape(card.description)}"
 
 

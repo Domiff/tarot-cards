@@ -2,11 +2,15 @@ from textwrap import shorten
 from typing import Any
 
 from markupsafe import Markup
+from starlette.requests import Request
 from wtforms.validators import Length
+
+from bot.core.cache import cache
 
 from bot.admin.base import BaseAdmin
 from bot.admin.filters import RuOperationColumnFilter
 from bot.tarot.models import Card, DailyCard, History
+from bot.tarot.cache import CARDS_KEY, HISTORY_KEY
 
 MESSAGE_LIMIT = 4096
 CATEGORY = "Таро"
@@ -64,6 +68,11 @@ class CardAdmin(BaseAdmin, model=Card):
 
     can_delete = False
 
+    async def after_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        await cache.delete(CARDS_KEY)
+
     name = "Карта"
     name_plural = "Карты"
     icon = "fa-solid fa-clone"
@@ -73,6 +82,7 @@ class CardAdmin(BaseAdmin, model=Card):
 
 class DailyCardAdmin(BaseAdmin, model=DailyCard):
     column_list = [DailyCard.card, DailyCard.text, DailyCard.updated_at]
+    column_import_list = [DailyCard.card, DailyCard.text]
     column_details_list = [
         DailyCard.card,
         DailyCard.text,
@@ -114,6 +124,14 @@ class HistoryAdmin(BaseAdmin, model=History):
     form_columns = [History.text]
     form_args = {"text": {"validators": [_max_len(MESSAGE_LIMIT)]}}
     form_widget_args = {"text": {"rows": 24}}
+
+    async def after_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        await cache.delete(HISTORY_KEY)
+
+    async def after_model_delete(self, model: Any, request: Request) -> None:
+        await cache.delete(HISTORY_KEY)
 
     name = "История Таро"
     name_plural = "История Таро"
