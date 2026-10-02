@@ -1,6 +1,6 @@
 from html import escape
 
-from bot.tarot.schemas import CardSchema, Deck
+from bot.tarot.schemas import CardSchema, Deck, DailyCardSchema
 
 HEADER = "🔮 <b>Колода Таро</b>"
 EMPTY = "🔮 В колоде пока нет ни одной карты."
@@ -44,6 +44,10 @@ def format_group(index: int, cards: Deck) -> str:
 
 def format_card(card: CardSchema) -> str:
     return f"🃏 <b>{escape(card.name)}</b>\n\n{escape(card.description)}"
+
+
+def format_daily_card(daily_card: DailyCardSchema) -> str:
+    return f"🃏 <b>{escape(daily_card.card.name)}</b>\n\n{escape(daily_card.text)}"
 
 
 def format_not_found(query: str) -> str:

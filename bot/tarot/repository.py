@@ -1,6 +1,7 @@
 from typing import Sequence
 
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from bot.core.database import session_maker
 from bot.tarot.models import History, Card, DailyCard
@@ -27,8 +28,12 @@ async def get_card(name: str) -> Card:
         return cards.scalar_one()
 
 
-async def get_daily_card(id_: int) -> DailyCard:
+async def get_daily_card(id_: int) -> DailyCard | None:
     async with session_maker() as session:
-        query = select(DailyCard).where(DailyCard.id == id_)
+        query = (
+            select(DailyCard)
+            .where(DailyCard.id == id_)
+            .options(joinedload(DailyCard.card))
+        )
         daily_card = await session.execute(query)
-        return daily_card.scalar_one()
+        return daily_card.scalar_one_or_none()

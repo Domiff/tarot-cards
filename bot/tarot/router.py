@@ -1,8 +1,14 @@
+import random
+from functools import partial
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, URLInputFile
 
+from bot.core.cache import key_builder
 from bot.tarot.cache import CARDS_KEY, HISTORY_KEY, get_cached
 from bot.tarot.keyboards import (
     DeckCallback,
@@ -10,8 +16,10 @@ from bot.tarot.keyboards import (
     cards_keyboard,
     groups_keyboard,
 )
-from bot.tarot.repository import get_history, get_cards
+from bot.tarot.repository import get_history, get_cards, get_daily_card
 from bot.tarot.schemas import (
+    CardSchema,
+    DailyCardAdapter,
     DeckAdapter,
     HistoryAdapter,
 )
@@ -25,6 +33,7 @@ from bot.tarot.service import (
     format_not_found,
     group_cards,
     group_index,
+    format_daily_card,
 )
 
 router = Router()
@@ -95,14 +104,14 @@ async def cards_command(message: Message) -> None:
 @router.callback_query(DeckCallback.filter(F.action == "deck"))
 async def deck_callback(query: CallbackQuery) -> None:
     deck = await get_cached(CARDS_KEY, DeckAdapter, get_cards)
-    await _edit(query, format_deck(deck), groups_keyboard(deck))
+    await _render(query, format_deck(deck), groups_keyboard(deck))
 
 
 @router.callback_query(DeckCallback.filter(F.action == "group"))
 async def group_callback(query: CallbackQuery, callback_data: DeckCallback) -> None:
     deck = await get_cached(CARDS_KEY, DeckAdapter, get_cards)
     group = group_cards(deck, callback_data.value)
-    await _edit(
+    await _render(
         query,
         format_group(callback_data.value, group),
         cards_keyboard(group),
@@ -118,7 +127,12 @@ async def card_callback(query: CallbackQuery, callback_data: DeckCallback) -> No
         await query.answer("Карта не найдена", show_alert=True)
         return
 
-    await _edit(query, format_card(card), card_keyboard(group_index(card)))
+    await _render(
+        query,
+        format_card(card),
+        card_keyboard(group_index(card)),
+        _photo(card, format_card(card)),
+    )
 
 
 @router.message(Command("card"))
@@ -138,4 +152,17 @@ async def card_command(message: Message, command: CommandObject) -> None:
         await message.answer(format_not_found(name))
         return
 
-    await message.answer(format_card(found))
+    await _send(message, found, format_card(found))
+
+
+@router.message(Command("daily"))
+async def daily_card_handler(message: Message) -> None:
+    now = datetime.now(ZoneInfo("Europe/Moscow"))
+    midnight = datetime.combine(now.date() + timedelta(days=1), time.min, now.tzinfo)
+    exp = midnight - now
+    key = key_builder("tarot", f"daily:{message.from_user.id}")
+    id_ = random.randint(1, 78)
+    daily_card = await get_cached(
+        key, DailyCardAdapter, partial(get_daily_card, id_), exp
+    )
+    await _send(message, daily_card.card, format_daily_card(daily_card))

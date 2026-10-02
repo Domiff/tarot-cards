@@ -18,9 +18,10 @@ class CardSchema(BaseModel):
 
 class DailyCardSchema(BaseModel):
     text: str
-    card_id: int
+    card: CardSchema
 
 
 Deck = list[CardSchema]
 HistoryAdapter = TypeAdapter(HistorySchema | None)
 DeckAdapter = TypeAdapter(Deck)
+DailyCardAdapter = TypeAdapter(DailyCardSchema)
