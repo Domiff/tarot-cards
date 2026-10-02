@@ -30,10 +30,43 @@ from bot.tarot.service import (
 router = Router()
 
 
-async def _edit(query: CallbackQuery, text: str, markup: InlineKeyboardMarkup) -> None:
-    """Повторное нажатие той же кнопки ничего не меняет — Telegram отвечает ошибкой."""
+CAPTION_LIMIT = 1024
+
+
+def _photo(card: CardSchema, caption: str) -> URLInputFile | None:
+    if not card.image or len(caption) > CAPTION_LIMIT:
+        return None
+
+    return URLInputFile(card.image, filename=f"{card.id}.jpg")
+
+
+async def _send(message: Message, card: CardSchema, text: str) -> None:
+    photo = _photo(card, text)
+
+    if photo is None:
+        await message.answer(text)
+        return
+
+    await message.answer_photo(photo, caption=text)
+
+
+async def _render(
+    query: CallbackQuery,
+    text: str,
+    markup: InlineKeyboardMarkup,
+    photo: URLInputFile | None = None,
+) -> None:
+    message = query.message
+
     try:
-        await query.message.edit_text(text, reply_markup=markup)
+        if photo is not None:
+            await message.answer_photo(photo, caption=text, reply_markup=markup)
+            await message.delete()
+        elif message.photo:
+            await message.delete()
+            await message.answer(text, reply_markup=markup)
+        else:
+            await message.edit_text(text, reply_markup=markup)
     except TelegramBadRequest as error:
         if "message is not modified" not in str(error):
             raise
