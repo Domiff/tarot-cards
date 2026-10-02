@@ -10,7 +10,7 @@ from bot.core.cache import cache
 from bot.admin.base import BaseAdmin
 from bot.admin.filters import RuOperationColumnFilter
 from bot.tarot.models import Card, DailyCard, History
-from bot.tarot.cache import CARDS_KEY, HISTORY_KEY
+from bot.tarot.cache import CARDS_KEY, DAILY_PATTERN, HISTORY_KEY
 
 MESSAGE_LIMIT = 4096
 CATEGORY = "Таро"
@@ -100,6 +100,11 @@ class DailyCardAdmin(BaseAdmin, model=DailyCard):
     form_columns = [DailyCard.card, DailyCard.text]
     form_args = {"text": {"validators": [_max_len(MESSAGE_LIMIT)]}}
     form_widget_args = {"text": {"rows": 20}}
+
+    async def after_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        await cache.delete_by_pattern(DAILY_PATTERN)
 
     name = "Карта дня"
     name_plural = "Карты дня"

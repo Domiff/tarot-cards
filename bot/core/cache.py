@@ -58,6 +58,12 @@ class RedisCache(BaseRedis):
         await self._do(self.redis.delete, key)
         self.logger.info("redis_delete", extra={"redis_key": key})
 
+    async def delete_by_pattern(self, pattern: str) -> None:
+        async for key in self.redis.scan_iter(match=pattern, count=100):
+            await self._do(self.redis.delete, key)
+
+        self.logger.info("redis_delete_pattern", extra={"redis_key": pattern})
+
 
 def key_builder(prefix: str, key: str | int) -> str:
     return f"{prefix}:{key}"

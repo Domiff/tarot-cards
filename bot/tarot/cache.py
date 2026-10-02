@@ -10,6 +10,7 @@ T = TypeVar("T")
 
 CARDS_KEY = key_builder("tarot", "cards")
 HISTORY_KEY = key_builder("tarot", "history")
+DAILY_PATTERN = key_builder("tarot", "daily:*")
 
 
 async def get_cached(
