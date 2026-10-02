@@ -119,6 +119,20 @@ This starts four containers: `pg` (PostgreSQL 16), `redis`, `admin` and `bot`. B
 `alembic upgrade head` before it starts, and the bot waits for it. Only the admin port is published; the
 database stays on the internal network.
 
+PostgreSQL keeps its data in the named volume `pgdata`, so cards and posts survive `docker compose down`
+and a rebuild — the database is filled once. Redis has no volume on purpose: it only holds cache, and an
+empty cache costs one trip to the database.
+
+```bash
+docker compose down              # data stays
+docker compose down -v           # drops the volume along with the database
+docker volume ls | grep pgdata   # check the volume is there
+```
+
+Note that `volumes` is rejected by Timeweb App Platform. Deploying there means either dropping the volume
+from this file or, better, pointing `POSTGRES_HOST` at a managed database and removing the `pg` service
+altogether — a database inside App Platform would lose its data on every redeploy anyway.
+
 ## Bot commands
 
 | Command | What it does |
