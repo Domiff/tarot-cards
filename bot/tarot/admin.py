@@ -50,7 +50,7 @@ class CardAdmin(BaseAdmin, model=Card):
         Card.created_at: "Создана",
         Card.updated_at: "Изменена",
     }
-    column_formatters = {Card.description: _preview()}
+    column_formatters = {Card.description: _preview(), Card.image: _preview(60, "30ch")}
     column_searchable_list = [Card.name, Card.description]
     column_sortable_list = [Card.name, Card.updated_at]
     column_default_sort = [(Card.name, False)]
