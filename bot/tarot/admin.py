@@ -66,8 +66,6 @@ class CardAdmin(BaseAdmin, model=Card):
         "image": {"placeholder": "media/cards/sun.jpg"},
     }
 
-    can_delete = False
-
     async def after_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
