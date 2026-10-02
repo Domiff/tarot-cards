@@ -127,6 +127,7 @@ database stays on the internal network.
 | `/help` | The command list |
 | `/cards` | The deck behind inline buttons: arcana → cards → one card |
 | `/card <name>` | One card with its description; the name is matched case-insensitively |
+| `/daily` | The card of the day, fixed per user until midnight |
 | `/history` | The history of tarot |
 
 ### Browsing the deck
@@ -155,6 +156,24 @@ Message texts are built in `bot/tarot/service.py` and keyboards in `bot/tarot/ke
 stay thin. Tapping the same button twice makes Telegram answer "message is not modified" — the router
 swallows exactly that error and re-raises everything else.
 
+### Images
+
+A single card arrives as a photo with a caption, both from `/card` and from the list. The file goes out as
+`URLInputFile`: Telegram fetches a photo URL from its own servers and cannot reach the S3 bucket, answering
+"failed to get HTTP URL content", so the bot downloads the image itself and uploads the bytes. Without an
+image, or with a caption over 1024 characters — the photo limit, against 4096 for a message — the card is
+sent as plain text instead (`_photo()` and `_send()` in `bot/tarot/router.py`).
+
+A text message cannot be edited into a photo, so `_render()` recreates the screen on a text↔photo switch and
+only edits in place between two text screens. The "back" button out of a card depends on it.
+
+### Card of the day
+
+`/daily` picks a post at random and pins it to the user until midnight in Europe/Moscow: the TTL is the
+remainder of the day, passed to `get_cached()` as `exp`. The key carries the user id, so everyone gets their
+own card. `DailyCardSchema` nests the whole `CardSchema`, which is why the name and the image survive the
+round trip through Redis — the related card is loaded with `joinedload`, in one query instead of two.
+
 ## Caching
 
 The deck and the history are read through Redis. Handlers never touch the ORM directly: `get_cached()` from
@@ -172,6 +191,7 @@ ORM objects cannot go into Redis, so `bot/tarot/schemas.py` defines what travels
 |---|---|---|
 | `tarot:cards` | the whole deck | `CardAdmin` after a save |
 | `tarot:history` | the history text | `HistoryAdmin` after a save or a delete |
+| `tarot:daily:<user id>` | that user's card of the day | expires at midnight |
 
 Both views override `after_model_change()` / `after_model_delete()` and delete their own key, so an edit in
 the admin reaches the bot immediately instead of waiting out `EXPIRE`. CSV import writes rows directly and
@@ -215,7 +235,7 @@ JSON, and disables the `Secure` flag on the admin session cookie. Set it to `fal
 
 ## Content model
 
-- **Card** — name, short description shown in spreads, and an image path
+- **Card** — name, short description shown in spreads, and an image URL (the bot sends it as a photo)
 - **DailyCard** — one-to-one with a card, holds the full card-of-the-day post
 - **History** — the history of tarot as readable text
 
