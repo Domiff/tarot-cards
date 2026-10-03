@@ -1,26 +1,32 @@
-x-env-file: &env-file
-  - path: .env
-    required: false
-
 x-app-environment: &app-environment
   IS_DEBUG: "false"
-  POSTGRES_HOST: pg
-  POSTGRES_PORT: "5432"
-  POSTGRES_DB: ${POSTGRES_DB:-tarot}
-  POSTGRES_USER: ${POSTGRES_USER:-tarot}
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
+  BOT_TOKEN: ${BOT_TOKEN}
+  CHANNEL_URL: ${CHANNEL_URL}
+  CHAT_URL: ${CHAT_URL}
+  ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+  ADMIN_SECRET_KEY: ${ADMIN_SECRET_KEY}
+  ADMIN_PORT: ${ADMIN_PORT:-8080}
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_HOST: ${POSTGRES_HOST:-pg}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  REDIS_HOST: ${REDIS_HOST:-redis}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_DB: ${REDIS_DB:-0}
+  EXPIRE: ${EXPIRE:-3600}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 services:
   admin:
     container_name: admin-tarot
     build:
       dockerfile: Dockerfile
-    env_file: *env-file
     environment: *app-environment
     command: sh -c "alembic upgrade head && python -m bot.run_admin"
     ports:
-      - "8080:8080"
+      - "${ADMIN_PORT:-8080}:${ADMIN_PORT:-8080}"
     depends_on:
       pg:
         condition: service_healthy
@@ -30,7 +36,6 @@ services:
     container_name: bot-tarot
     build:
       dockerfile: Dockerfile
-    env_file: *env-file
     environment: *app-environment
     command: python -m bot.run_bot
     depends_on:
@@ -45,7 +50,6 @@ services:
   pg:
     container_name: pg-tarot
     image: postgres:16
-    env_file: *env-file
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tarot}
       POSTGRES_USER: ${POSTGRES_USER:-tarot}
