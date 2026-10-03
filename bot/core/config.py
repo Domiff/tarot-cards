@@ -15,6 +15,8 @@ class AppSettings(BaseSettings):
 
 class BotSettings(AppSettings):
     BOT_TOKEN: str
+    CHANNEL_URL: str = ""
+    CHAT_URL: str = ""
 
 
 class LoggingSettings(AppSettings):
