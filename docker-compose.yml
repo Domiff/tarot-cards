@@ -6,6 +6,8 @@ x-app-environment: &app-environment
   IS_DEBUG: "false"
   POSTGRES_HOST: pg
   POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-tarot}
+  POSTGRES_USER: ${POSTGRES_USER:-tarot}
   REDIS_HOST: redis
   REDIS_PORT: "6379"
 
@@ -44,6 +46,10 @@ services:
     container_name: pg-tarot
     image: postgres:16
     env_file: *env-file
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tarot}
+      POSTGRES_USER: ${POSTGRES_USER:-tarot}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
